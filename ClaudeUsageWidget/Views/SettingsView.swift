@@ -12,7 +12,9 @@ struct SettingsView: View {
     @State private var usageMonitor: UsageMonitor
 
     @State private var sessionTokenLimit: String = ""
+    @State private var dailyTokenLimit: String = ""
     @State private var weeklyTokenLimit: String = ""
+    @State private var monthlyTokenLimit: String = ""
     @State private var sessionRequestLimit: String = ""
     @State private var refreshInterval: Double = 60
 
@@ -38,10 +40,26 @@ struct SettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
+                        Text("Daily Token Limit")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        TextField("500,000", text: $dailyTokenLimit)
+                            .textFieldStyle(.roundedBorder)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Weekly Token Limit")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        TextField("1,000,000", text: $weeklyTokenLimit)
+                        TextField("2,000,000", text: $weeklyTokenLimit)
+                            .textFieldStyle(.roundedBorder)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Monthly Token Limit")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        TextField("10,000,000", text: $monthlyTokenLimit)
                             .textFieldStyle(.roundedBorder)
                     }
 
@@ -90,7 +108,9 @@ struct SettingsView: View {
             HStack(spacing: 12) {
                 Button("Reset to Defaults") {
                     sessionTokenLimit = "200000"
-                    weeklyTokenLimit = "1000000"
+                    dailyTokenLimit = "500000"
+                    weeklyTokenLimit = "2000000"
+                    monthlyTokenLimit = "10000000"
                     sessionRequestLimit = "50"
                     refreshInterval = 60
                 }
@@ -107,7 +127,7 @@ struct SettingsView: View {
             .padding(.horizontal)
         }
         .padding()
-        .frame(width: 450, height: 500)
+        .frame(width: 450, height: 600)
         .onAppear {
             loadCurrentSettings()
         }
@@ -119,8 +139,14 @@ struct SettingsView: View {
         let sessionLimit = defaults.integer(forKey: "sessionTokenLimit")
         sessionTokenLimit = sessionLimit > 0 ? "\(sessionLimit)" : "200000"
 
+        let dailyLimit = defaults.integer(forKey: "dailyTokenLimit")
+        dailyTokenLimit = dailyLimit > 0 ? "\(dailyLimit)" : "500000"
+
         let weeklyLimit = defaults.integer(forKey: "weeklyTokenLimit")
-        weeklyTokenLimit = weeklyLimit > 0 ? "\(weeklyLimit)" : "1000000"
+        weeklyTokenLimit = weeklyLimit > 0 ? "\(weeklyLimit)" : "2000000"
+
+        let monthlyLimit = defaults.integer(forKey: "monthlyTokenLimit")
+        monthlyTokenLimit = monthlyLimit > 0 ? "\(monthlyLimit)" : "10000000"
 
         let requestLimit = defaults.integer(forKey: "sessionRequestLimit")
         sessionRequestLimit = requestLimit > 0 ? "\(requestLimit)" : "50"
@@ -134,8 +160,16 @@ struct SettingsView: View {
             usageMonitor.setSessionLimit(limit)
         }
 
+        if let limit = Int(dailyTokenLimit.replacingOccurrences(of: ",", with: "")) {
+            usageMonitor.setDailyLimit(limit)
+        }
+
         if let limit = Int(weeklyTokenLimit.replacingOccurrences(of: ",", with: "")) {
             usageMonitor.setWeeklyLimit(limit)
+        }
+
+        if let limit = Int(monthlyTokenLimit.replacingOccurrences(of: ",", with: "")) {
+            usageMonitor.setMonthlyLimit(limit)
         }
 
         if let limit = Int(sessionRequestLimit) {

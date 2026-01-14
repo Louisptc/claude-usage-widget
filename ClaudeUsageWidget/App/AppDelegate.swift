@@ -29,7 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Create popover with usageMonitor
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 320, height: 400)
+        popover.contentSize = NSSize(width: 320, height: 550)
         popover.behavior = .transient
 
         let menuBarView = MenuBarView(usageMonitor: usageMonitor, onSettingsClick: { [weak self] in

@@ -32,7 +32,7 @@ class ClaudeHistoryParser {
     }
 
     // Parse history.jsonl file
-    func parseHistory() throws -> (sessionTokens: Int, weeklyTokens: Int, turnCount: Int) {
+    func parseHistory() throws -> (sessionTokens: Int, dailyTokens: Int, weeklyTokens: Int, monthlyTokens: Int, turnCount: Int) {
         guard FileManager.default.fileExists(atPath: historyPath.path) else {
             throw NSError(domain: "ClaudeHistory", code: 404, userInfo: [
                 NSLocalizedDescriptionKey: "History file not found"
@@ -43,10 +43,14 @@ class ClaudeHistoryParser {
         let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
 
         let now = Date()
+        let dayAgo = now.addingTimeInterval(-24 * 60 * 60)
         let weekAgo = now.addingTimeInterval(-7 * 24 * 60 * 60)
+        let monthAgo = now.addingTimeInterval(-30 * 24 * 60 * 60)
 
         var sessionTokens = 0
+        var dailyTokens = 0
         var weeklyTokens = 0
+        var monthlyTokens = 0
         var turnCount = 0
         var lastSessionStart: Date?
 
@@ -63,10 +67,20 @@ class ClaudeHistoryParser {
             let outputTokens = estimateTokens(from: entry.outputText)
             let totalTokens = inputTokens + outputTokens
 
+            // Count for daily
+            if entryDate > dayAgo {
+                dailyTokens += totalTokens
+            }
+
             // Count for weekly
             if entryDate > weekAgo {
                 weeklyTokens += totalTokens
                 turnCount += 1
+            }
+
+            // Count for monthly
+            if entryDate > monthAgo {
+                monthlyTokens += totalTokens
             }
 
             // Session detection: entries within 30 minutes are same session
@@ -81,6 +95,6 @@ class ClaudeHistoryParser {
             }
         }
 
-        return (sessionTokens, weeklyTokens, turnCount)
+        return (sessionTokens, dailyTokens, weeklyTokens, monthlyTokens, turnCount)
     }
 }

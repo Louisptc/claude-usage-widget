@@ -28,7 +28,7 @@ struct MenuBarView: View {
             Divider()
 
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
                     // Session Usage
                     UsageSection(
                         title: "Session",
@@ -36,6 +36,20 @@ struct MenuBarView: View {
                         usage: usageMonitor.currentUsage.sessionUsage.percentUsed,
                         subtitle: usageMonitor.currentUsage.sessionUsage.formattedUsage + " tokens"
                     )
+
+                    Divider()
+
+                    // Daily Usage
+                    UsageSection(
+                        title: "Daily",
+                        icon: "sun.max",
+                        usage: usageMonitor.currentUsage.dailyUsage.percentUsed,
+                        subtitle: usageMonitor.currentUsage.dailyUsage.formattedUsage + " tokens"
+                    )
+
+                    Text(usageMonitor.currentUsage.dailyUsage.resetsInText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
                     Divider()
 
@@ -48,6 +62,20 @@ struct MenuBarView: View {
                     )
 
                     Text(usageMonitor.currentUsage.weeklyUsage.resetsInText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Divider()
+
+                    // Monthly Usage
+                    UsageSection(
+                        title: "Monthly",
+                        icon: "calendar.circle",
+                        usage: usageMonitor.currentUsage.monthlyUsage.percentUsed,
+                        subtitle: usageMonitor.currentUsage.monthlyUsage.formattedUsage + " tokens"
+                    )
+
+                    Text(usageMonitor.currentUsage.monthlyUsage.resetsInText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -103,7 +131,7 @@ struct MenuBarView: View {
             .padding(.vertical, 8)
             .background(Color(nsColor: .controlBackgroundColor))
         }
-        .frame(width: 320, height: 400)
+        .frame(width: 320, height: 550)
     }
 }
 

@@ -69,31 +69,49 @@ class UsageMonitor {
         // Parse history file on background thread
         return try await Task.detached {
             let parser = ClaudeHistoryParser()
-            let (sessionTokens, weeklyTokens, turnCount) = try parser.parseHistory()
+            let (sessionTokens, dailyTokens, weeklyTokens, monthlyTokens, turnCount) = try parser.parseHistory()
 
             // Get user-configured limits or use defaults
             let sessionLimit = self.defaults.integer(forKey: "sessionTokenLimit")
+            let dailyLimit = self.defaults.integer(forKey: "dailyTokenLimit")
             let weeklyLimit = self.defaults.integer(forKey: "weeklyTokenLimit")
+            let monthlyLimit = self.defaults.integer(forKey: "monthlyTokenLimit")
             let sessionRequestLimit = self.defaults.integer(forKey: "sessionRequestLimit")
 
             // Use defaults if not configured
             let finalSessionLimit = sessionLimit > 0 ? sessionLimit : 200000
-            let finalWeeklyLimit = weeklyLimit > 0 ? weeklyLimit : 1000000
+            let finalDailyLimit = dailyLimit > 0 ? dailyLimit : 500000
+            let finalWeeklyLimit = weeklyLimit > 0 ? weeklyLimit : 2000000
+            let finalMonthlyLimit = monthlyLimit > 0 ? monthlyLimit : 10000000
             let finalRequestLimit = sessionRequestLimit > 0 ? sessionRequestLimit : 50
 
-            // Calculate weekly reset (assuming Monday 00:00 UTC)
+            // Calculate reset times
             let calendar = Calendar.current
             let now = Date()
-            var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
-            components.weekday = 2 // Monday
-            components.hour = 0
-            components.minute = 0
-            components.second = 0
 
-            let thisMonday = calendar.date(from: components) ?? now
+            // Daily reset: next midnight
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
+
+            // Weekly reset: next Monday 00:00 UTC
+            var weekComponents = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+            weekComponents.weekday = 2 // Monday
+            weekComponents.hour = 0
+            weekComponents.minute = 0
+            weekComponents.second = 0
+
+            let thisMonday = calendar.date(from: weekComponents) ?? now
             let nextMonday = calendar.date(byAdding: .weekOfYear, value: 1, to: thisMonday) ?? now
+            let weeklyResetsAt = now > thisMonday ? nextMonday : thisMonday
 
-            let resetsAt = now > thisMonday ? nextMonday : thisMonday
+            // Monthly reset: first day of next month
+            var monthComponents = calendar.dateComponents([.year, .month], from: now)
+            monthComponents.day = 1
+            monthComponents.hour = 0
+            monthComponents.minute = 0
+            monthComponents.second = 0
+
+            let thisMonthStart = calendar.date(from: monthComponents) ?? now
+            let nextMonthStart = calendar.date(byAdding: .month, value: 1, to: thisMonthStart) ?? now
 
             return UsageData(
                 sessionUsage: SessionUsage(
@@ -102,10 +120,20 @@ class UsageMonitor {
                     requestsUsed: min(turnCount, finalRequestLimit),
                     requestsLimit: finalRequestLimit
                 ),
+                dailyUsage: DailyUsage(
+                    tokensUsed: dailyTokens,
+                    tokensLimit: finalDailyLimit,
+                    resetsAt: tomorrow
+                ),
                 weeklyUsage: WeeklyUsage(
                     tokensUsed: weeklyTokens,
                     tokensLimit: finalWeeklyLimit,
-                    resetsAt: resetsAt
+                    resetsAt: weeklyResetsAt
+                ),
+                monthlyUsage: MonthlyUsage(
+                    tokensUsed: monthlyTokens,
+                    tokensLimit: finalMonthlyLimit,
+                    resetsAt: nextMonthStart
                 ),
                 lastUpdated: Date()
             )
@@ -129,8 +157,22 @@ class UsageMonitor {
         }
     }
 
+    func setDailyLimit(_ limit: Int) {
+        defaults.set(limit, forKey: "dailyTokenLimit")
+        Task {
+            await fetchUsage()
+        }
+    }
+
     func setWeeklyLimit(_ limit: Int) {
         defaults.set(limit, forKey: "weeklyTokenLimit")
+        Task {
+            await fetchUsage()
+        }
+    }
+
+    func setMonthlyLimit(_ limit: Int) {
+        defaults.set(limit, forKey: "monthlyTokenLimit")
         Task {
             await fetchUsage()
         }
@@ -144,7 +186,7 @@ class UsageMonitor {
     }
 
     // Manual override for actual usage (if user knows from claude.ai)
-    func setManualUsage(sessionTokens: Int?, weeklyTokens: Int?) {
+    func setManualUsage(sessionTokens: Int?, dailyTokens: Int?, weeklyTokens: Int?, monthlyTokens: Int?) {
         var updated = currentUsage
 
         if let sessionTokens = sessionTokens {
@@ -155,7 +197,23 @@ class UsageMonitor {
                     requestsUsed: updated.sessionUsage.requestsUsed,
                     requestsLimit: updated.sessionUsage.requestsLimit
                 ),
+                dailyUsage: updated.dailyUsage,
                 weeklyUsage: updated.weeklyUsage,
+                monthlyUsage: updated.monthlyUsage,
+                lastUpdated: Date()
+            )
+        }
+
+        if let dailyTokens = dailyTokens {
+            updated = UsageData(
+                sessionUsage: updated.sessionUsage,
+                dailyUsage: DailyUsage(
+                    tokensUsed: dailyTokens,
+                    tokensLimit: updated.dailyUsage.tokensLimit,
+                    resetsAt: updated.dailyUsage.resetsAt
+                ),
+                weeklyUsage: updated.weeklyUsage,
+                monthlyUsage: updated.monthlyUsage,
                 lastUpdated: Date()
             )
         }
@@ -163,10 +221,26 @@ class UsageMonitor {
         if let weeklyTokens = weeklyTokens {
             updated = UsageData(
                 sessionUsage: updated.sessionUsage,
+                dailyUsage: updated.dailyUsage,
                 weeklyUsage: WeeklyUsage(
                     tokensUsed: weeklyTokens,
                     tokensLimit: updated.weeklyUsage.tokensLimit,
                     resetsAt: updated.weeklyUsage.resetsAt
+                ),
+                monthlyUsage: updated.monthlyUsage,
+                lastUpdated: Date()
+            )
+        }
+
+        if let monthlyTokens = monthlyTokens {
+            updated = UsageData(
+                sessionUsage: updated.sessionUsage,
+                dailyUsage: updated.dailyUsage,
+                weeklyUsage: updated.weeklyUsage,
+                monthlyUsage: MonthlyUsage(
+                    tokensUsed: monthlyTokens,
+                    tokensLimit: updated.monthlyUsage.tokensLimit,
+                    resetsAt: updated.monthlyUsage.resetsAt
                 ),
                 lastUpdated: Date()
             )
