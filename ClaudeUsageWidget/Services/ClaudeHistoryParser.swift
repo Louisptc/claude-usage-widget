@@ -25,10 +25,15 @@ class ClaudeHistoryParser {
         .appendingPathComponent(".claude")
         .appendingPathComponent("history.jsonl")
 
-    // Rough token estimation (1 token ≈ 4 characters)
+    // Rough token estimation (1 token ≈ 6-7 characters for mixed content)
+    // This is adjustable - real ratio varies between 4-8 depending on language/code
     private func estimateTokens(from text: String?) -> Int {
         guard let text = text else { return 0 }
-        return text.count / 4
+        // Get user-configured ratio or use default
+        let defaults = UserDefaults.standard
+        let ratio = defaults.integer(forKey: "tokenEstimationRatio")
+        let finalRatio = ratio > 0 ? ratio : 7
+        return text.count / finalRatio
     }
 
     // Parse history.jsonl file

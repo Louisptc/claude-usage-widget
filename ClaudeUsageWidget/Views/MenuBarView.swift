@@ -12,6 +12,10 @@ struct MenuBarView: View {
     let onSettingsClick: () -> Void
     let onRefreshClick: () -> Void
 
+    @State private var showManualEntry = false
+    @State private var manualSessionPercent: String = ""
+    @State private var manualWeeklyPercent: String = ""
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -91,15 +95,25 @@ struct MenuBarView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    // Refresh Button
-                    Button(action: {
-                        onRefreshClick()
-                    }) {
-                        Label("Refresh", systemImage: "arrow.clockwise")
-                            .frame(maxWidth: .infinity)
+                    // Action Buttons
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            onRefreshClick()
+                        }) {
+                            Label("Refresh", systemImage: "arrow.clockwise")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(usageMonitor.isLoading)
+
+                        Button(action: {
+                            showManualEntry = true
+                        }) {
+                            Label("From claude.ai", systemImage: "square.and.pencil")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(usageMonitor.isLoading)
 
                     if let error = usageMonitor.errorMessage {
                         Text(error)
@@ -132,6 +146,88 @@ struct MenuBarView: View {
             .background(Color(nsColor: .controlBackgroundColor))
         }
         .frame(width: 320, height: 550)
+        .sheet(isPresented: $showManualEntry) {
+            ManualUsageEntryView(
+                usageMonitor: usageMonitor,
+                isPresented: $showManualEntry
+            )
+        }
+    }
+}
+
+struct ManualUsageEntryView: View {
+    let usageMonitor: UsageMonitor
+    @Binding var isPresented: Bool
+
+    @State private var sessionPercent: String = ""
+    @State private var weeklyPercent: String = ""
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Enter Usage from claude.ai")
+                .font(.headline)
+
+            Text("Go to claude.ai, click your profile, and check your usage percentages")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Current Session Usage (%)")
+                        .font(.subheadline)
+                    TextField("e.g., 32", text: $sessionPercent)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Weekly Usage (%)")
+                        .font(.subheadline)
+                    TextField("e.g., 40", text: $weeklyPercent)
+                        .textFieldStyle(.roundedBorder)
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    isPresented = false
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button("Update") {
+                    updateUsage()
+                    isPresented = false
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(sessionPercent.isEmpty && weeklyPercent.isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 400, height: 280)
+    }
+
+    private func updateUsage() {
+        var sessionTokens: Int? = nil
+        var weeklyTokens: Int? = nil
+
+        if let percent = Double(sessionPercent), percent > 0, percent <= 100 {
+            let limit = usageMonitor.currentUsage.sessionUsage.tokensLimit
+            sessionTokens = Int(Double(limit) * percent / 100.0)
+        }
+
+        if let percent = Double(weeklyPercent), percent > 0, percent <= 100 {
+            let limit = usageMonitor.currentUsage.weeklyUsage.tokensLimit
+            weeklyTokens = Int(Double(limit) * percent / 100.0)
+        }
+
+        usageMonitor.setManualUsage(
+            sessionTokens: sessionTokens,
+            dailyTokens: nil,
+            weeklyTokens: weeklyTokens,
+            monthlyTokens: nil
+        )
     }
 }
 

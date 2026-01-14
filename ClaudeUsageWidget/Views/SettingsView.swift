@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var monthlyTokenLimit: String = ""
     @State private var sessionRequestLimit: String = ""
     @State private var refreshInterval: Double = 60
+    @State private var tokenEstimationRatio: Double = 7
 
     init(usageMonitor: UsageMonitor) {
         self._usageMonitor = State(initialValue: usageMonitor)
@@ -88,6 +89,21 @@ struct SettingsView: View {
                         Slider(value: $refreshInterval, in: 30...300, step: 30)
                     }
 
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Token Estimation Ratio")
+                            Spacer()
+                            Text("1 token ≈ \(Int(tokenEstimationRatio)) chars")
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Slider(value: $tokenEstimationRatio, in: 4...10, step: 1)
+
+                        Text("Adjust if estimated usage doesn't match claude.ai. Higher = fewer tokens counted.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     Toggle("Show Notifications", isOn: $settings.showNotifications)
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -113,6 +129,7 @@ struct SettingsView: View {
                     monthlyTokenLimit = "10000000"
                     sessionRequestLimit = "50"
                     refreshInterval = 60
+                    tokenEstimationRatio = 7
                 }
                 .buttonStyle(.bordered)
 
@@ -127,7 +144,7 @@ struct SettingsView: View {
             .padding(.horizontal)
         }
         .padding()
-        .frame(width: 450, height: 600)
+        .frame(width: 450, height: 680)
         .onAppear {
             loadCurrentSettings()
         }
@@ -152,6 +169,9 @@ struct SettingsView: View {
         sessionRequestLimit = requestLimit > 0 ? "\(requestLimit)" : "50"
 
         refreshInterval = settings.refreshInterval
+
+        let ratio = defaults.integer(forKey: "tokenEstimationRatio")
+        tokenEstimationRatio = ratio > 0 ? Double(ratio) : 7
     }
 
     private func saveSettings() {
@@ -176,9 +196,17 @@ struct SettingsView: View {
             usageMonitor.setSessionRequestLimit(limit)
         }
 
+        // Save token estimation ratio
+        UserDefaults.standard.set(Int(tokenEstimationRatio), forKey: "tokenEstimationRatio")
+
         // Save app settings
         settings.refreshInterval = refreshInterval
         settings.saveSettings()
+
+        // Refresh usage with new settings
+        Task {
+            await usageMonitor.fetchUsage()
+        }
     }
 }
 
