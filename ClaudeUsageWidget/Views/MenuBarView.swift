@@ -8,7 +8,9 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    @State private var usageMonitor = UsageMonitor()
+    @Bindable var usageMonitor: UsageMonitor
+    let onSettingsClick: () -> Void
+    let onRefreshClick: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -63,9 +65,7 @@ struct MenuBarView: View {
 
                     // Refresh Button
                     Button(action: {
-                        Task {
-                            await usageMonitor.fetchUsage()
-                        }
+                        onRefreshClick()
                     }) {
                         Label("Refresh", systemImage: "arrow.clockwise")
                             .frame(maxWidth: .infinity)
@@ -88,7 +88,7 @@ struct MenuBarView: View {
             // Footer
             HStack {
                 Button("Settings") {
-                    // TODO: Open settings window
+                    onSettingsClick()
                 }
                 .buttonStyle(.link)
 
@@ -108,5 +108,9 @@ struct MenuBarView: View {
 }
 
 #Preview {
-    MenuBarView()
+    MenuBarView(
+        usageMonitor: UsageMonitor(),
+        onSettingsClick: {},
+        onRefreshClick: {}
+    )
 }

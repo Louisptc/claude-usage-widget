@@ -12,8 +12,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var usageMonitor: UsageMonitor!
+    private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Initialize usage monitor first
+        usageMonitor = UsageMonitor()
+
         // Create status bar item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -23,14 +27,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.target = self
         }
 
-        // Create popover
+        // Create popover with usageMonitor
         popover = NSPopover()
         popover.contentSize = NSSize(width: 320, height: 400)
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView: MenuBarView())
 
-        // Initialize usage monitor
-        usageMonitor = UsageMonitor()
+        let menuBarView = MenuBarView(usageMonitor: usageMonitor, onSettingsClick: { [weak self] in
+            self?.openSettings()
+        }, onRefreshClick: { [weak self] in
+            Task {
+                await self?.usageMonitor.fetchUsage()
+                self?.updateStatusBarIcon()
+            }
+        })
+
+        popover.contentViewController = NSHostingController(rootView: menuBarView)
+
+        // Start monitoring
         usageMonitor.startMonitoring()
 
         // Update status bar icon based on usage
@@ -45,6 +58,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             }
         }
+    }
+
+    @objc func openSettings() {
+        if settingsWindow == nil {
+            let settingsView = SettingsView(usageMonitor: usageMonitor)
+            let hostingController = NSHostingController(rootView: settingsView)
+
+            settingsWindow = NSWindow(contentViewController: hostingController)
+            settingsWindow?.title = "Settings"
+            settingsWindow?.styleMask = [.titled, .closable]
+            settingsWindow?.center()
+        }
+
+        settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func updateStatusBarIcon() {

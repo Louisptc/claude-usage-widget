@@ -15,6 +15,8 @@
 		A1000006000000000000001 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1100006000000000000001 /* MenuBarView.swift */; };
 		A1000007000000000000001 /* UsageProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1100007000000000000001 /* UsageProgressView.swift */; };
 		A1000008000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1100008000000000000001 /* Assets.xcassets */; };
+		A1000009000000000000001 /* ClaudeHistoryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1100011000000000000001 /* ClaudeHistoryParser.swift */; };
+		A1000010000000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1100012000000000000001 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +31,8 @@
 		A1100008000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1100009000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1100010000000000000001 /* ClaudeUsageWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeUsageWidget.entitlements; sourceTree = "<group>"; };
+		A1100011000000000000001 /* ClaudeHistoryParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeHistoryParser.swift; sourceTree = "<group>"; };
+		A1100012000000000000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,6 +90,7 @@
 			children = (
 				A1100006000000000000001 /* MenuBarView.swift */,
 				A1100007000000000000001 /* UsageProgressView.swift */,
+				A1100012000000000000001 /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -103,6 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				A1100005000000000000001 /* UsageMonitor.swift */,
+				A1100011000000000000001 /* ClaudeHistoryParser.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -191,6 +197,8 @@
 				A1000005000000000000001 /* UsageMonitor.swift in Sources */,
 				A1000006000000000000001 /* MenuBarView.swift in Sources */,
 				A1000007000000000000001 /* UsageProgressView.swift in Sources */,
+				A1000009000000000000001 /* ClaudeHistoryParser.swift in Sources */,
+				A1000010000000000000001 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

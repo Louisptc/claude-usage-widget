@@ -16,10 +16,17 @@ class UsageMonitor {
 
     private var timer: Timer?
     private let settings = AppSettings()
+    private let historyParser = ClaudeHistoryParser()
+    private let defaults = UserDefaults.standard
 
     init() {
-        // Start with mock data
-        self.currentUsage = UsageData.mock
+        // Load saved usage or start with defaults
+        if let data = defaults.data(forKey: "lastUsageData"),
+           let usage = try? JSONDecoder().decode(UsageData.self, from: data) {
+            self.currentUsage = usage
+        } else {
+            self.currentUsage = UsageData.mock
+        }
     }
 
     func startMonitoring() {
@@ -47,9 +54,9 @@ class UsageMonitor {
         errorMessage = nil
 
         do {
-            // Try to read from Claude Code's local files
             let usage = try await readClaudeUsageData()
             currentUsage = usage
+            saveUsage(usage)
         } catch {
             errorMessage = error.localizedDescription
             print("Failed to fetch usage: \(error)")
@@ -59,28 +66,113 @@ class UsageMonitor {
     }
 
     private func readClaudeUsageData() async throws -> UsageData {
-        // TODO: Implement actual reading from Claude Code files
-        // For now, return mock data with some randomization
+        // Parse history file on background thread
+        return try await Task.detached {
+            let parser = ClaudeHistoryParser()
+            let (sessionTokens, weeklyTokens, turnCount) = try parser.parseHistory()
 
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5s delay to simulate fetch
+            // Get user-configured limits or use defaults
+            let sessionLimit = self.defaults.integer(forKey: "sessionTokenLimit")
+            let weeklyLimit = self.defaults.integer(forKey: "weeklyTokenLimit")
+            let sessionRequestLimit = self.defaults.integer(forKey: "sessionRequestLimit")
 
-        // Generate slightly randomized mock data
-        let sessionTokens = Int.random(in: 7000...9000)
-        let weeklyTokens = Int.random(in: 500000...700000)
+            // Use defaults if not configured
+            let finalSessionLimit = sessionLimit > 0 ? sessionLimit : 200000
+            let finalWeeklyLimit = weeklyLimit > 0 ? weeklyLimit : 1000000
+            let finalRequestLimit = sessionRequestLimit > 0 ? sessionRequestLimit : 50
 
-        return UsageData(
-            sessionUsage: SessionUsage(
-                tokensUsed: sessionTokens,
-                tokensLimit: 10000,
-                requestsUsed: Int.random(in: 40...50),
-                requestsLimit: 50
-            ),
-            weeklyUsage: WeeklyUsage(
-                tokensUsed: weeklyTokens,
-                tokensLimit: 1000000,
-                resetsAt: Date().addingTimeInterval(TimeInterval.random(in: 2*24*3600...4*24*3600))
-            ),
-            lastUpdated: Date()
-        )
+            // Calculate weekly reset (assuming Monday 00:00 UTC)
+            let calendar = Calendar.current
+            let now = Date()
+            var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+            components.weekday = 2 // Monday
+            components.hour = 0
+            components.minute = 0
+            components.second = 0
+
+            let thisMonday = calendar.date(from: components) ?? now
+            let nextMonday = calendar.date(byAdding: .weekOfYear, value: 1, to: thisMonday) ?? now
+
+            let resetsAt = now > thisMonday ? nextMonday : thisMonday
+
+            return UsageData(
+                sessionUsage: SessionUsage(
+                    tokensUsed: sessionTokens,
+                    tokensLimit: finalSessionLimit,
+                    requestsUsed: min(turnCount, finalRequestLimit),
+                    requestsLimit: finalRequestLimit
+                ),
+                weeklyUsage: WeeklyUsage(
+                    tokensUsed: weeklyTokens,
+                    tokensLimit: finalWeeklyLimit,
+                    resetsAt: resetsAt
+                ),
+                lastUpdated: Date()
+            )
+        }.value
+    }
+
+    // MARK: - Persistence
+
+    private func saveUsage(_ usage: UsageData) {
+        if let encoded = try? JSONEncoder().encode(usage) {
+            defaults.set(encoded, forKey: "lastUsageData")
+        }
+    }
+
+    // MARK: - Manual Adjustments
+
+    func setSessionLimit(_ limit: Int) {
+        defaults.set(limit, forKey: "sessionTokenLimit")
+        Task {
+            await fetchUsage()
+        }
+    }
+
+    func setWeeklyLimit(_ limit: Int) {
+        defaults.set(limit, forKey: "weeklyTokenLimit")
+        Task {
+            await fetchUsage()
+        }
+    }
+
+    func setSessionRequestLimit(_ limit: Int) {
+        defaults.set(limit, forKey: "sessionRequestLimit")
+        Task {
+            await fetchUsage()
+        }
+    }
+
+    // Manual override for actual usage (if user knows from claude.ai)
+    func setManualUsage(sessionTokens: Int?, weeklyTokens: Int?) {
+        var updated = currentUsage
+
+        if let sessionTokens = sessionTokens {
+            updated = UsageData(
+                sessionUsage: SessionUsage(
+                    tokensUsed: sessionTokens,
+                    tokensLimit: updated.sessionUsage.tokensLimit,
+                    requestsUsed: updated.sessionUsage.requestsUsed,
+                    requestsLimit: updated.sessionUsage.requestsLimit
+                ),
+                weeklyUsage: updated.weeklyUsage,
+                lastUpdated: Date()
+            )
+        }
+
+        if let weeklyTokens = weeklyTokens {
+            updated = UsageData(
+                sessionUsage: updated.sessionUsage,
+                weeklyUsage: WeeklyUsage(
+                    tokensUsed: weeklyTokens,
+                    tokensLimit: updated.weeklyUsage.tokensLimit,
+                    resetsAt: updated.weeklyUsage.resetsAt
+                ),
+                lastUpdated: Date()
+            )
+        }
+
+        currentUsage = updated
+        saveUsage(updated)
     }
 }
